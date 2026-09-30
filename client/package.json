@@ -1,0 +1,30 @@
+{
+  "name": "connstellation-client",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "framer-motion": "^11.3.8",
+    "html5-qrcode": "^2.3.8",
+    "qrcode.react": "^3.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-force-graph-2d": "^1.25.5",
+    "react-router-dom": "^6.25.1",
+    "socket.io-client": "^4.7.5",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "vite": "^5.3.4"
+  }
+}

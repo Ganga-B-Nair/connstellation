@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-sky-void text-slate-200 font-body antialiased;
+    /* A static starfield behind everything — three layers of radial dots. */
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(255, 255, 255, 0.5) 50%, transparent 50%),
+      radial-gradient(1px 1px at 70% 15%, rgba(255, 255, 255, 0.35) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 45% 75%, rgba(255, 255, 255, 0.3) 50%, transparent 50%),
+      radial-gradient(circle at 50% 0%, #131a3a 0%, #05060f 60%);
+    background-size: 220px 220px, 340px 340px, 460px 460px, 100% 100%;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display text-slate-100;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-sky-line/70 bg-sky-panel/70 backdrop-blur-md;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium
+      transition focus:outline-none focus-visible:ring-2 focus-visible:ring-star-frontend/60
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-star-frontend text-sky-void hover:bg-sky-200;
+  }
+
+  .btn-ghost {
+    @apply btn border border-sky-line bg-transparent text-slate-300 hover:border-star-frontend/60 hover:text-slate-100;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-sky-line bg-sky-deep/80 px-3.5 py-2.5 text-sm
+      text-slate-100 placeholder:text-slate-500
+      focus:border-star-frontend/70 focus:outline-none focus:ring-1 focus:ring-star-frontend/40;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-400;
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full border border-sky-line bg-sky-deep/70 px-2.5 py-1 text-xs text-slate-300;
+  }
+}
+
+/* The force-graph canvas fills its container and never shows scrollbars. */
+.sky-canvas canvas {
+  display: block;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0d1f;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2547;
+  border-radius: 999px;
+}
