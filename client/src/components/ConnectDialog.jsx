@@ -11,8 +11,15 @@ import api from '../api/client';
  * Scanning proves you were standing next to each other, so the connection is
  * created as mutual straight away — no approval queue.
  */
-export default function ConnectDialog({ eventId, myStarCode, onClose, onConnected }) {
-  const [tab, setTab] = useState('mine');
+export default function ConnectDialog({
+  eventId,
+  myStarCode,
+  onClose,
+  onConnected,
+  initialTab = 'mine',
+  targetName = null,
+}) {
+  const [tab, setTab] = useState(initialTab);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -128,7 +135,7 @@ export default function ConnectDialog({ eventId, myStarCode, onClose, onConnecte
 
             <div className="mt-4">
               <label className="label" htmlFor="starcode">
-                Or type their code
+                {targetName ? `Type ${targetName}'s code` : 'Or type their code'}
               </label>
               <div className="flex gap-2">
                 <input

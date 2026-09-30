@@ -2,16 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/client';
 import { joinSky } from '../api/socket';
-import { useAuth } from '../store/auth';
 import SkyGraph from '../components/SkyGraph';
 import SkyControls from '../components/SkyControls';
 import StarPanel from '../components/StarPanel';
 import ConnectDialog from '../components/ConnectDialog';
+import ConnectionsList from '../components/ConnectionsList';
 import StatsPanel from '../components/StatsPanel';
+
+/** Link endpoints arrive as ids or as node objects once the graph has run. */
+const endId = (end) => (typeof end === 'object' && end !== null ? end.id : end);
 
 export default function SkyPage() {
   const { id: eventId } = useParams();
-  const { user } = useAuth();
 
   const [event, setEvent] = useState(null);
   const [nodes, setNodes] = useState([]);
@@ -22,9 +24,11 @@ export default function SkyPage() {
   const [selected, setSelected] = useState(null);
   const [query, setQuery] = useState('');
   const [activeCategories, setActiveCategories] = useState(new Set());
-  const [myConstellation, setMyConstellation] = useState(false);
+  const [view, setView] = useState('all'); // 'all' | 'connections' | 'unmet'
   const [connectOpen, setConnectOpen] = useState(false);
+  const [connectTarget, setConnectTarget] = useState(null);
   const [showStats, setShowStats] = useState(false);
+  const [showRoster, setShowRoster] = useState(false);
   const [flareIds, setFlareIds] = useState([]);
   const [toast, setToast] = useState('');
 
@@ -55,8 +59,8 @@ export default function SkyPage() {
         setLinks((prev) => {
           const exists = prev.some(
             (l) =>
-              (l.source === link.source && l.target === link.target) ||
-              (l.source === link.target && l.target === link.source)
+              (endId(l.source) === link.source && endId(l.target) === link.target) ||
+              (endId(l.source) === link.target && endId(l.target) === link.source)
           );
           return exists ? prev : [...prev, link];
         });
@@ -73,7 +77,9 @@ export default function SkyPage() {
       'star:joined': () => load(),
       'star:removed': ({ userId }) => {
         setNodes((prev) => prev.filter((n) => n.id !== userId));
-        setLinks((prev) => prev.filter((l) => l.source !== userId && l.target !== userId));
+        setLinks((prev) =>
+          prev.filter((l) => endId(l.source) !== userId && endId(l.target) !== userId)
+        );
       },
     });
   }, [eventId, load]);
@@ -86,14 +92,42 @@ export default function SkyPage() {
       return next;
     });
 
-  /** null means "light everything"; a Set narrows the sky. */
+  /** Everyone I have personally drawn a line to. */
+  const myConnectionIds = useMemo(() => {
+    const set = new Set();
+    if (!myNode) return set;
+    links.forEach((l) => {
+      const s = endId(l.source);
+      const t = endId(l.target);
+      if (s === myNode.id) set.add(t);
+      if (t === myNode.id) set.add(s);
+    });
+    return set;
+  }, [links, myNode]);
+
+  /** The view filter: null means "no restriction from this control". */
+  const viewIds = useMemo(() => {
+    if (view === 'all' || !myNode) return null;
+    if (view === 'connections') return new Set([myNode.id, ...myConnectionIds]);
+    // 'unmet' — everyone I have not met, with my own star kept lit for bearings
+    const unmet = nodes
+      .filter((n) => n.id !== myNode.id && !myConnectionIds.has(n.id))
+      .map((n) => n.id);
+    return new Set([myNode.id, ...unmet]);
+  }, [view, myNode, myConnectionIds, nodes]);
+
+  /**
+   * Search, categories and the view filter all narrow the same set.
+   * null means "light everything".
+   */
   const highlightIds = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q && activeCategories.size === 0) return null;
+    const noSearchFilter = !q && activeCategories.size === 0;
+    if (noSearchFilter && !viewIds) return null;
 
     const matches = nodes.filter((n) => {
-      const byCategory = activeCategories.size === 0 || activeCategories.has(n.category);
-      if (!byCategory) return false;
+      if (viewIds && !viewIds.has(n.id)) return false;
+      if (activeCategories.size > 0 && !activeCategories.has(n.category)) return false;
       if (!q) return true;
       const haystack = [n.name, n.headline, ...(n.skills || []), ...(n.interests || [])]
         .join(' ')
@@ -101,7 +135,12 @@ export default function SkyPage() {
       return haystack.includes(q);
     });
     return new Set(matches.map((n) => n.id));
-  }, [query, activeCategories, nodes]);
+  }, [query, activeCategories, viewIds, nodes]);
+
+  const openConnect = (target = null) => {
+    setConnectTarget(target);
+    setConnectOpen(true);
+  };
 
   if (loading) return <Centered>Reading the sky…</Centered>;
   if (error)
@@ -120,7 +159,6 @@ export default function SkyPage() {
         nodes={nodes}
         links={links}
         highlightIds={highlightIds}
-        focusId={myConstellation && myNode ? myNode.id : null}
         flareIds={flareIds}
         onSelect={setSelected}
       />
@@ -130,8 +168,10 @@ export default function SkyPage() {
         onQuery={setQuery}
         activeCategories={activeCategories}
         onToggleCategory={toggleCategory}
-        myConstellation={myConstellation}
-        onToggleMine={() => setMyConstellation((v) => !v)}
+        view={view}
+        onView={setView}
+        onOpenRoster={() => setShowRoster(true)}
+        myConnectionCount={myConnectionIds.size}
         matchCount={highlightIds ? highlightIds.size : nodes.length}
         totalCount={nodes.length}
       />
@@ -139,8 +179,9 @@ export default function SkyPage() {
       <StarPanel
         node={selected}
         canConnect={Boolean(myNode)}
+        isConnected={selected ? myConnectionIds.has(selected.id) : false}
         onClose={() => setSelected(null)}
-        onConnect={() => setConnectOpen(true)}
+        onConnect={(node) => openConnect(node)}
       />
 
       {/* Bottom bar: event identity, join code, and the connect button. */}
@@ -156,7 +197,7 @@ export default function SkyPage() {
           Insights
         </button>
         {myNode && (
-          <button onClick={() => setConnectOpen(true)} className="btn-primary">
+          <button onClick={() => openConnect(null)} className="btn-primary">
             Connect
           </button>
         )}
@@ -166,10 +207,27 @@ export default function SkyPage() {
         <ConnectDialog
           eventId={eventId}
           myStarCode={myNode.starCode}
-          onClose={() => setConnectOpen(false)}
+          initialTab={connectTarget ? 'scan' : 'mine'}
+          targetName={connectTarget ? connectTarget.name.split(' ')[0] : null}
+          onClose={() => {
+            setConnectOpen(false);
+            setConnectTarget(null);
+          }}
           onConnected={(data) => {
             setToast(`Connected with ${data.with?.name || 'a new star'}`);
             setTimeout(() => setToast(''), 3000);
+          }}
+        />
+      )}
+
+      {showRoster && (
+        <ConnectionsList
+          eventId={eventId}
+          nodes={nodes}
+          onClose={() => setShowRoster(false)}
+          onFocus={(userId) => {
+            const node = nodes.find((n) => n.id === userId);
+            if (node) setSelected(node);
           }}
         />
       )}
